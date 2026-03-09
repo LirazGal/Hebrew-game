@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>למד עברית! 🇮🇱</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Nunito', sans-serif; }
+    .game-root {
+      min-height: 100vh;
+      background: #FFF8EE;
+      background-image:
+        radial-gradient(circle at 10% 20%, rgba(255,180,100,0.18) 0%, transparent 50%),
+        radial-gradient(circle at 90% 80%, rgba(100,180,255,0.15) 0%, transparent 50%);
+    }
+    .card {
+      background: white;
+      border-radius: 28px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .btn-option {
+      background: white;
+      border: 3px solid #F0E8FF;
+      border-radius: 18px;
+      padding: 16px 20px;
+      cursor: pointer;
+      width: 100%;
+      text-align: center;
+      transition: all 0.15s ease;
+      font-family: 'Nunito', sans-serif;
+    }
+    .btn-option:hover:not(:disabled) {
+      transform: translateY(-2px);
+      border-color: #C4A5FF;
+      box-shadow: 0 6px 20px rgba(130,80,220,0.15);
+    }
+    .btn-option:disabled { cursor: default; }
+    .btn-option.correct { background: #D4F5E9; border-color: #52C99A; }
+    .btn-option.wrong { background: #FFE4E4; border-color: #F87171; }
+    .btn-option.dimmed { opacity: 0.5; }
+    .progress-bar { height: 12px; background: #F0E8FF; border-radius: 99px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #A78BFA, #7C3AED); border-radius: 99px; transition: width 0.4s ease; }
+    .levelup-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 998;
+      animation: fadeIn 0.3s ease;
+    }
+    .levelup-card {
+      background: white; border-radius: 32px;
+      padding: 40px 48px; text-align: center;
+      animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .lb-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid #F5F0FF;
+    }
+    .lb-row:last-child { border-bottom: none; }
+    @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+    @keyframes popIn { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    const ITEMS = [
+      { emoji: "☕", hebrew: "כוס", phonetic: "kos" },
+      { emoji: "📚", hebrew: "ספר", phonetic: "sefer" },
+      { emoji: "✏️", hebrew: "עיפרון", phonetic: "iparon" },
+      { emoji: "🔑", hebrew: "מפתח", phonetic: "mafteach" },
+      { emoji: "📱", hebrew: "טלפון", phonetic: "telefon" },
+      { emoji: "🪑", hebrew: "כיסא", phonetic: "kise" },
+      { emoji: "⏰", hebrew: "שעון", phonetic: "sha'on" },
+      { emoji: "💻", hebrew: "מחשב", phonetic: "machshev" },
+      { emoji: "👜", hebrew: "תיק", phonetic: "tik" },
+      { emoji: "👟", hebrew: "נעל", phonetic: "na'al" },
+      { emoji: "🎩", hebrew: "כובע", phonetic: "kova" },
+      { emoji: "☂️", hebrew: "מטריה", phonetic: "mitriya" },
+      { emoji: "🧴", hebrew: "בקבוק", phonetic: "bakbuk" },
+      { emoji: "✂️", hebrew: "מספריים", phonetic: "misparayim" },
+      { emoji: "💡", hebrew: "מנורה", phonetic: "menora" },
+      { emoji: "🧼", hebrew: "סבון", phonetic: "sabon" },
+      { emoji: "🍳", hebrew: "מחבת", phonetic: "machvat" },
+      { emoji: "🍽️", hebrew: "צלחת", phonetic: "tsalachat" },
+      { emoji: "🥄", hebrew: "כף", phonetic: "kaf" },
+      { emoji: "🪞", hebrew: "מראה", phonetic: "mar'a" },
+      { emoji: "🖊️", hebrew: "עט", phonetic: "et" },
+      { emoji: "📷", hebrew: "מצלמה", phonetic: "matzlema" },
+      { emoji: "🎒", hebrew: "תרמיל", phonetic: "tarmil" },
+      { emoji: "🪟", hebrew: "חלון", phonetic: "chalon" },
+      { emoji: "🛋️", hebrew: "ספה", phonetic: "sapa" },
+      { emoji: "🛏️", hebrew: "מיטה", phonetic: "mita" },
+      { emoji: "🚪", hebrew: "דלת", phonetic: "delet" },
+      { emoji: "🪴", hebrew: "עציץ", phonetic: "atzitz" },
+      { emoji: "🧺", hebrew: "סל", phonetic: "sal" },
+      { emoji: "🫖", hebrew: "קומקום", phonetic: "kumkum" },
+      { emoji: "🧃", hebrew: "מיץ", phonetic: "mitz" },
+      { emoji: "🍴", hebrew: "מזלג", phonetic: "mazleg" },
+      { emoji: "🪥", hebrew: "מברשת שיניים", phonetic: "mivreshet shinayim" },
+      { emoji: "🧻", hebrew: "נייר טואלט", phonetic: "nyar toilet" },
+      { emoji: "🪣", hebrew: "דלי", phonetic: "dli" },
+    ];
+
+    function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
+    function getOptions(correct, all) {
+      const wrong = shuffle(all.filter(i => i.hebrew !== correct.hebrew)).slice(0, 2);
+      return shuffle([correct, ...wrong]);
+    }
+
+    function FireworkCanvas({ active }) {
+      const canvasRef = useRef(null);
+      const animRef = useRef(null);
+      const particlesRef = useRef([]);
+      useEffect(() => {
+        if (!active) { particlesRef.current = []; return; }
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        const colors = ["#FF6B6B","#FFD93D","#6BCB77","#4ECDC4","#FF6FC8","#A78BFA","#FB923C"];
+        particlesRef.current = [];
+        for (let b = 0; b < 6; b++) {
+          const cx = 100 + Math.random() * (canvas.width - 200);
+          const cy = 80 + Math.random() * (canvas.height * 0.5);
+          for (let i = 0; i < 30; i++) {
+            const angle = (Math.PI * 2 * i) / 30;
+            const speed = 2 + Math.random() * 4;
+            particlesRef.current.push({ x: cx, y: cy, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, alpha: 1, color: colors[Math.floor(Math.random()*colors.length)], size: 3+Math.random()*4 });
+          }
+        }
+        const animate = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          particlesRef.current.forEach(p => { p.x+=p.vx; p.y+=p.vy+0.05; p.vy+=0.05; p.alpha-=0.018; ctx.globalAlpha=Math.max(0,p.alpha); ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill(); });
+          ctx.globalAlpha = 1;
+          particlesRef.current = particlesRef.current.filter(p => p.alpha > 0);
+          if (particlesRef.current.length > 0) animRef.current = requestAnimationFrame(animate);
+        };
+        animRef.current = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(animRef.current);
+      }, [active]);
+      if (!active) return null;
+      return <canvas ref={canvasRef} style={{ position:"fixed", top:0, left:0, pointerEvents:"none", zIndex:999 }} />;
+    }
+
+    function App() {
+      const [screen, setScreen] = useState("start");
+      const [playerName, setPlayerName] = useState("");
+      const [score, setScore] = useState(0);
+      const [level, setLevel] = useState(1);
+      const [correctThisLevel, setCorrectThisLevel] = useState(0);
+      const [question, setQuestion] = useState(null);
+      const [options, setOptions] = useState([]);
+      const [selected, setSelected] = useState(null);
+      const [showFireworks, setShowFireworks] = useState(false);
+      const [showLevelUp, setShowLevelUp] = useState(false);
+      const [leaderboard, setLeaderboard] = useState([
+        { name: "Sofia", score: 220 },
+        { name: "Miguel", score: 180 },
+        { name: "Carmen", score: 130 },
+      ]);
+      const [showLeaderboard, setShowLeaderboard] = useState(false);
+      const [totalAnswered, setTotalAnswered] = useState(0);
+      const [confirmExit, setConfirmExit] = useState(false);
+      const usedRef = useRef([]);
+
+      const pickQuestion = useCallback(() => {
+        const remaining = ITEMS.filter(i => !usedRef.current.includes(i.hebrew));
+        const pool = remaining.length > 0 ? remaining : ITEMS;
+        if (remaining.length === 0) usedRef.current = [];
+        const item = pool[Math.floor(Math.random() * pool.length)];
+        usedRef.current.push(item.hebrew);
+        setQuestion(item);
+        setOptions(getOptions(item, ITEMS));
+        setSelected(null);
+      }, []);
+
+      const startGame = () => {
+        if (!playerName.trim()) return;
+        setScore(0); setLevel(1); setCorrectThisLevel(0); setTotalAnswered(0);
+        usedRef.current = [];
+        pickQuestion();
+        setScreen("game");
+      };
+
+      const handleAnswer = (opt) => {
+        if (selected) return;
+        setSelected(opt.hebrew);
+        const correct = opt.hebrew === question.hebrew;
+        setTotalAnswered(t => t + 1);
+        if (correct) {
+          const pts = 10 * level;
+          setScore(s => s + pts);
+          const newCorrect = correctThisLevel + 1;
+          if (newCorrect >= 5) {
+            setCorrectThisLevel(0);
+            setLevel(l => l + 1);
+            setShowFireworks(true); setShowLevelUp(true);
+            setTimeout(() => setShowFireworks(false), 2200);
+            setTimeout(() => { setShowLevelUp(false); pickQuestion(); }, 2200);
+          } else {
+            setCorrectThisLevel(newCorrect);
+            setTimeout(pickQuestion, 1200);
+          }
+        } else {
+          setTimeout(pickQuestion, 1300);
+        }
+      };
+
+      const endGame = () => {
+        const entry = { name: playerName, score };
+        const newBoard = [...leaderboard, entry].sort((a, b) => b.score - a.score).slice(0, 10);
+        setLeaderboard(newBoard);
+        setScreen("end");
+      };
+
+      if (screen === "start") return (
+        <div className="game-root" style={{ display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
+          <div style={{ width:"100%", maxWidth:420 }}>
+            <div className="card" style={{ padding:"40px 36px", textAlign:"center" }}>
+              <div style={{ fontSize:72, marginBottom:8 }}>🇮🇱</div>
+              <h1 style={{ fontFamily:"'Fredoka One',cursive", fontSize:38, color:"#5B21B6", letterSpacing:1 }}>למד עברית!</h1>
+              <p style={{ color:"#9CA3AF", fontSize:17, marginTop:4, marginBottom:28, fontWeight:600 }}>ראה תמונה → בחר את המילה הנכונה</p>
+              <input
+                value={playerName} onChange={e => setPlayerName(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && startGame()}
+                placeholder="שם שלך"
+                style={{ width:"100%", padding:"14px 18px", border:"3px solid #EDE9FE", borderRadius:16, fontSize:17, textAlign:"center", outline:"none", fontFamily:"'Nunito',sans-serif", color:"#374151", marginBottom:16 }}
+              />
+              <button onClick={startGame}
+                style={{ width:"100%", padding:"15px", background:"linear-gradient(135deg,#7C3AED,#A855F7)", color:"white", border:"none", borderRadius:16, fontSize:19, fontFamily:"'Fredoka One',cursive", letterSpacing:0.5, cursor:"pointer", boxShadow:"0 6px 24px rgba(124,58,237,0.35)" }}>
+                🎮 בוא נשחק!
+              </button>
+              <button onClick={() => setShowLeaderboard(!showLeaderboard)}
+                style={{ background:"none", border:"none", color:"#7C3AED", cursor:"pointer", marginTop:18, fontSize:15, fontFamily:"'Nunito',sans-serif", fontWeight:700 }}>
+                🏆 {showLeaderboard ? "סגור" : "לוח תוצאות"}
+              </button>
+              {showLeaderboard && (
+                <div style={{ marginTop:16 }}>
+                  {leaderboard.slice(0,5).map((e,i) => (
+                    <div key={i} className="lb-row">
+                      <span style={{ fontWeight:700, color:"#374151" }}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`} {e.name}</span>
+                      <span style={{ fontWeight:800, color:"#7C3AED", fontSize:17 }}>{e.score}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <p style={{ textAlign:"center", color:"#C4B5FD", marginTop:16, fontSize:13, fontWeight:600 }}>ראה תמונה ← בחר את המילה הנכונה בעברית</p>
+          </div>
+        </div>
+      );
+
+      if (screen === "end") return (
+        <div className="game-root" style={{ display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
+          <div className="card" style={{ padding:"40px 36px", textAlign:"center", width:"100%", maxWidth:420 }}>
+            <div style={{ fontSize:64 }}>🎉</div>
+            <h2 style={{ fontFamily:"'Fredoka One',cursive", fontSize:32, color:"#5B21B6", marginTop:8 }}>כל הכבוד, {playerName}!</h2>
+            <p style={{ color:"#6B7280", marginTop:4, marginBottom:20, fontWeight:600 }}>סיימת את המשחק!</p>
+            <div style={{ display:"flex", justifyContent:"center", gap:20, marginBottom:28 }}>
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontFamily:"'Fredoka One',cursive", fontSize:44, color:"#7C3AED" }}>{score}</div>
+                <div style={{ fontSize:13, color:"#9CA3AF", fontWeight:700 }}>ניקוד</div>
+              </div>
+              <div style={{ width:1, background:"#EDE9FE" }} />
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontFamily:"'Fredoka One',cursive", fontSize:44, color:"#7C3AED" }}>{level}</div>
+                <div style={{ fontSize:13, color:"#9CA3AF", fontWeight:700 }}>שלב</div>
+              </div>
+            </div>
+            <h3 style={{ fontWeight:800, color:"#374151", marginBottom:12 }}>🏆 לוח תוצאות</h3>
+            {leaderboard.slice(0,5).map((e,i) => (
+              <div key={i} className="lb-row" style={{ background: e.name===playerName&&e.score===score?"#F5F0FF":"transparent", borderRadius:10, padding:"10px 8px" }}>
+                <span style={{ fontWeight:700, color: e.name===playerName?"#7C3AED":"#374151" }}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`} {e.name}</span>
+                <span style={{ fontWeight:800, color:"#7C3AED", fontSize:17 }}>{e.score}</span>
+              </div>
+            ))}
+            <button onClick={() => setScreen("start")}
+              style={{ marginTop:24, width:"100%", padding:"14px", background:"linear-gradient(135deg,#7C3AED,#A855F7)", color:"white", border:"none", borderRadius:16, fontSize:18, fontFamily:"'Fredoka One',cursive", cursor:"pointer", boxShadow:"0 6px 24px rgba(124,58,237,0.3)" }}>
+              🔄 שוב!
+            </button>
+          </div>
+        </div>
+      );
+
+      return (
+        <>
+          <FireworkCanvas active={showFireworks} />
+
+          {confirmExit && (
+            <div className="levelup-overlay">
+              <div className="levelup-card" style={{ padding:"32px 40px" }}>
+                <div style={{ fontSize:48 }}>🚪</div>
+                <h2 style={{ fontFamily:"'Fredoka One',cursive", fontSize:26, color:"#5B21B6", marginTop:10 }}>לצאת מהמשחק?</h2>
+                <p style={{ color:"#9CA3AF", fontWeight:600, fontSize:15, marginTop:6, marginBottom:24 }}>הניקוד שלך: ⭐ {score}</p>
+                <div style={{ display:"flex", gap:12 }}>
+                  <button onClick={() => setConfirmExit(false)}
+                    style={{ flex:1, padding:"12px", background:"#F5F0FF", border:"none", borderRadius:14, color:"#7C3AED", fontFamily:"'Fredoka One',cursive", fontSize:17, cursor:"pointer" }}>
+                    המשך ▸
+                  </button>
+                  <button onClick={() => { setConfirmExit(false); endGame(); }}
+                    style={{ flex:1, padding:"12px", background:"linear-gradient(135deg,#7C3AED,#A855F7)", border:"none", borderRadius:14, color:"white", fontFamily:"'Fredoka One',cursive", fontSize:17, cursor:"pointer" }}>
+                    סיים
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showLevelUp && (
+            <div className="levelup-overlay">
+              <div className="levelup-card">
+                <div style={{ fontSize:64 }}>🚀</div>
+                <h2 style={{ fontFamily:"'Fredoka One',cursive", fontSize:34, color:"#5B21B6", marginTop:8 }}>שלב {level}!</h2>
+                <p style={{ color:"#7C3AED", fontWeight:700, fontSize:18, marginTop:4 }}>עלית שלב! 🎉</p>
+              </div>
+            </div>
+          )}
+
+          <div className="game-root" style={{ minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", padding:"20px 16px" }}>
+            <div style={{ width:"100%", maxWidth:460, display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+              <div style={{ background:"#7C3AED", color:"white", borderRadius:12, padding:"6px 14px", fontFamily:"'Fredoka One',cursive", fontSize:20 }}>⭐ {score}</div>
+              <div style={{ fontFamily:"'Fredoka One',cursive", fontSize:18, color:"#5B21B6" }}>שלב {level}</div>
+              <button onClick={() => setConfirmExit(true)}
+                style={{ background:"#F5F0FF", border:"none", borderRadius:12, padding:"7px 14px", color:"#7C3AED", fontWeight:700, cursor:"pointer", fontSize:13, fontFamily:"'Nunito',sans-serif" }}>
+                סיים ▸
+              </button>
+            </div>
+
+            <div style={{ width:"100%", maxWidth:460, marginBottom:20 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
+                <span style={{ fontSize:12, color:"#9CA3AF", fontWeight:700 }}>התקדמות לשלב הבא</span>
+                <span style={{ fontSize:12, color:"#7C3AED", fontWeight:800 }}>{correctThisLevel}/5</span>
+              </div>
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width:`${(correctThisLevel/5)*100}%` }} />
+              </div>
+            </div>
+
+            {question && (
+              <div className="card" style={{ width:"100%", maxWidth:460, padding:"32px 20px", textAlign:"center", marginBottom:20 }}>
+                <div style={{ fontSize:110, lineHeight:1.1, filter:"drop-shadow(0 4px 12px rgba(0,0,0,0.12))" }}>{question.emoji}</div>
+                <p style={{ color:"#C4B5FD", fontSize:13, marginTop:16, fontWeight:700 }}>מה זה?</p>
+              </div>
+            )}
+
+            <div style={{ width:"100%", maxWidth:460, display:"flex", flexDirection:"column", gap:12 }}>
+              {options.map((opt, i) => {
+                let cls = "btn-option";
+                if (selected) {
+                  if (opt.hebrew === question.hebrew) cls += " correct";
+                  else if (opt.hebrew === selected) cls += " wrong";
+                  else cls += " dimmed";
+                }
+                return (
+                  <button key={i} className={cls} onClick={() => handleAnswer(opt)} disabled={!!selected}>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12 }}>
+                      <div>
+                        <div style={{ fontFamily:"'Fredoka One',cursive", fontSize:24, color:"#1F2937", direction:"rtl" }}>{opt.hebrew}</div>
+                        <div style={{ fontSize:14, color:"#9CA3AF", fontWeight:600, marginTop:1 }}>{opt.phonetic}</div>
+                      </div>
+                      {selected && opt.hebrew === question.hebrew && <span style={{ fontSize:22 }}>✅</span>}
+                      {selected && opt.hebrew === selected && opt.hebrew !== question.hebrew && <span style={{ fontSize:22 }}>❌</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <p style={{ color:"#D8B4FE", fontSize:12, marginTop:16, fontWeight:600 }}>{totalAnswered} שאלות עד עכשיו</p>
+          </div>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
