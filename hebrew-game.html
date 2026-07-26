@@ -69,50 +69,335 @@
 <body>
   <div id="root"></div>
 
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
+    import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp }
+      from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+    const app = initializeApp({
+      apiKey: "AIzaSyDJ857xC7QF0C-NpYMqkw-Vyew0DjtSrFE",
+      authDomain: "hebrew-game-6c907.firebaseapp.com",
+      projectId: "hebrew-game-6c907",
+      storageBucket: "hebrew-game-6c907.firebasestorage.app",
+      messagingSenderId: "260581925712",
+      appId: "1:260581925712:web:652b3a2ce9f8ebec89c255",
+      measurementId: "G-YTJ8K4ZPVW"
+    });
+    try { getAnalytics(app); } catch (e) {}
+    const db = getFirestore(app);
+    window._lb = { db, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp };
+    window.dispatchEvent(new Event('lb-ready'));
+  </script>
+
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback } = React;
 
+    /* ── Leaderboard (Firestore) ── */
+    const DEFAULT_LB = [
+      { name: "Sofia", score: 220 },
+      { name: "Miguel", score: 180 },
+      { name: "Carmen", score: 130 },
+    ];
+    function waitForLB() {
+      if (window._lb) return Promise.resolve(window._lb);
+      return new Promise(r => window.addEventListener('lb-ready', () => r(window._lb), { once: true }));
+    }
+    function mergeBoard(rows) {
+      return [...rows, ...DEFAULT_LB].sort((a, b) => b.score - a.score).slice(0, 10);
+    }
+    async function fetchBoard() {
+      try {
+        const lb = await waitForLB();
+        const q = lb.query(lb.collection(lb.db, 'leaderboard'), lb.orderBy('score', 'desc'), lb.limit(10));
+        const snap = await lb.getDocs(q);
+        const rows = snap.docs.map(d => ({ name: d.data().name, score: d.data().score }));
+        return mergeBoard(rows);
+      } catch (e) { console.error('leaderboard read failed', e); return mergeBoard([]); }
+    }
+    async function submitScore(name, score) {
+      try {
+        const lb = await waitForLB();
+        await lb.addDoc(lb.collection(lb.db, 'leaderboard'), { name, score, ts: lb.serverTimestamp() });
+      } catch (e) { console.error('leaderboard write failed', e); }
+    }
+
     const ITEMS = [
-      { emoji: "☕", hebrew: "כוס", phonetic: "kos" },
-      { emoji: "📚", hebrew: "ספר", phonetic: "sefer" },
-      { emoji: "✏️", hebrew: "עיפרון", phonetic: "iparon" },
-      { emoji: "🔑", hebrew: "מפתח", phonetic: "mafteach" },
-      { emoji: "📱", hebrew: "טלפון", phonetic: "telefon" },
-      { emoji: "🪑", hebrew: "כיסא", phonetic: "kise" },
-      { emoji: "⏰", hebrew: "שעון", phonetic: "sha'on" },
-      { emoji: "💻", hebrew: "מחשב", phonetic: "machshev" },
-      { emoji: "👜", hebrew: "תיק", phonetic: "tik" },
-      { emoji: "👟", hebrew: "נעל", phonetic: "na'al" },
-      { emoji: "🎩", hebrew: "כובע", phonetic: "kova" },
-      { emoji: "☂️", hebrew: "מטריה", phonetic: "mitriya" },
-      { emoji: "🧴", hebrew: "בקבוק", phonetic: "bakbuk" },
-      { emoji: "✂️", hebrew: "מספריים", phonetic: "misparayim" },
-      { emoji: "💡", hebrew: "מנורה", phonetic: "menora" },
-      { emoji: "🧼", hebrew: "סבון", phonetic: "sabon" },
-      { emoji: "🍳", hebrew: "מחבת", phonetic: "machvat" },
-      { emoji: "🍽️", hebrew: "צלחת", phonetic: "tsalachat" },
-      { emoji: "🥄", hebrew: "כף", phonetic: "kaf" },
-      { emoji: "🪞", hebrew: "מראה", phonetic: "mar'a" },
-      { emoji: "🖊️", hebrew: "עט", phonetic: "et" },
-      { emoji: "📷", hebrew: "מצלמה", phonetic: "matzlema" },
-      { emoji: "🎒", hebrew: "תרמיל", phonetic: "tarmil" },
-      { emoji: "🪟", hebrew: "חלון", phonetic: "chalon" },
-      { emoji: "🛋️", hebrew: "ספה", phonetic: "sapa" },
-      { emoji: "🛏️", hebrew: "מיטה", phonetic: "mita" },
-      { emoji: "🚪", hebrew: "דלת", phonetic: "delet" },
-      { emoji: "🪴", hebrew: "עציץ", phonetic: "atzitz" },
-      { emoji: "🧺", hebrew: "סל", phonetic: "sal" },
-      { emoji: "🫖", hebrew: "קומקום", phonetic: "kumkum" },
-      { emoji: "🧃", hebrew: "מיץ", phonetic: "mitz" },
-      { emoji: "🍴", hebrew: "מזלג", phonetic: "mazleg" },
-      { emoji: "🪥", hebrew: "מברשת שיניים", phonetic: "mivreshet shinayim" },
-      { emoji: "🧻", hebrew: "נייר טואלט", phonetic: "nyar toilet" },
-      { emoji: "🪣", hebrew: "דלי", phonetic: "dli" },
+      // ── קל ──
+      { emoji: "☕", hebrew: "כוס", phonetic: "kos", diff: "easy" },
+      { emoji: "📖", hebrew: "ספר", phonetic: "sefer", diff: "easy" },
+      { emoji: "🪑", hebrew: "כיסא", phonetic: "kise", diff: "easy" },
+      { emoji: "⏰", hebrew: "שעון", phonetic: "sha'on", diff: "easy" },
+      { emoji: "👜", hebrew: "תיק", phonetic: "tik", diff: "easy" },
+      { emoji: "👟", hebrew: "נעל", phonetic: "na'al", diff: "easy" },
+      { emoji: "🎩", hebrew: "כובע", phonetic: "kova", diff: "easy" },
+      { emoji: "🚪", hebrew: "דלת", phonetic: "delet", diff: "easy" },
+      { emoji: "🥄", hebrew: "כף", phonetic: "kaf", diff: "easy" },
+      { emoji: "🖊️", hebrew: "עט", phonetic: "et", diff: "easy" },
+      { emoji: "🧺", hebrew: "סל", phonetic: "sal", diff: "easy" },
+      { emoji: "🧃", hebrew: "מיץ", phonetic: "mitz", diff: "easy" },
+      // ── בינוני ──
+      { emoji: "🔑", hebrew: "מפתח", phonetic: "mafteach", diff: "medium" },
+      { emoji: "📱", hebrew: "טלפון", phonetic: "telefon", diff: "medium" },
+      { emoji: "💻", hebrew: "מחשב", phonetic: "machshev", diff: "medium" },
+      { emoji: "🧼", hebrew: "סבון", phonetic: "sabon", diff: "medium" },
+      { emoji: "🪟", hebrew: "חלון", phonetic: "chalon", diff: "medium" },
+      { emoji: "🛋️", hebrew: "ספה", phonetic: "sapa", diff: "medium" },
+      { emoji: "🛏️", hebrew: "מיטה", phonetic: "mita", diff: "medium" },
+      { emoji: "🪞", hebrew: "מראה", phonetic: "mar'a", diff: "medium" },
+      { emoji: "☂️", hebrew: "מטריה", phonetic: "mitriya", diff: "medium" },
+      { emoji: "🧴", hebrew: "בקבוק", phonetic: "bakbuk", diff: "medium" },
+      { emoji: "🪣", hebrew: "דלי", phonetic: "dli", diff: "medium" },
+      { emoji: "🪴", hebrew: "עציץ", phonetic: "atzitz", diff: "medium" },
+      // ── קשה ──
+      { emoji: "✏️", hebrew: "עיפרון", phonetic: "iparon", diff: "hard" },
+      { emoji: "✂️", hebrew: "מספריים", phonetic: "misparayim", diff: "hard" },
+      { emoji: "🎒", hebrew: "תרמיל", phonetic: "tarmil", diff: "hard" },
+      { emoji: "🫖", hebrew: "קומקום", phonetic: "kumkum", diff: "hard" },
+      { emoji: "💡", hebrew: "מנורה", phonetic: "menora", diff: "hard" },
+      { emoji: "🍳", hebrew: "מחבת", phonetic: "machvat", diff: "hard" },
+      { emoji: "🍽️", hebrew: "צלחת", phonetic: "tsalachat", diff: "hard" },
+      { emoji: "📷", hebrew: "מצלמה", phonetic: "matzlema", diff: "hard" },
+      { emoji: "🪥", hebrew: "מברשת שיניים", phonetic: "mivreshet shinayim", diff: "hard" },
+      { emoji: "🧻", hebrew: "נייר טואלט", phonetic: "nyar toilet", diff: "hard" },
+
+      // ═══ בעלי חיים ═══
+      { emoji: "🐶", hebrew: "כלב", phonetic: "kelev", diff: "easy" },
+      { emoji: "🐱", hebrew: "חתול", phonetic: "chatul", diff: "easy" },
+      { emoji: "🐻", hebrew: "דוב", phonetic: "dov", diff: "easy" },
+      { emoji: "🐼", hebrew: "פנדה", phonetic: "panda", diff: "easy" },
+      { emoji: "🦁", hebrew: "אריה", phonetic: "arye", diff: "easy" },
+      { emoji: "🐮", hebrew: "פרה", phonetic: "para", diff: "easy" },
+      { emoji: "🐵", hebrew: "קוף", phonetic: "kof", diff: "easy" },
+      { emoji: "🐴", hebrew: "סוס", phonetic: "sus", diff: "easy" },
+      { emoji: "🐘", hebrew: "פיל", phonetic: "pil", diff: "easy" },
+      { emoji: "🐟", hebrew: "דג", phonetic: "dag", diff: "easy" },
+      { emoji: "🐢", hebrew: "צב", phonetic: "tsav", diff: "easy" },
+      { emoji: "🐐", hebrew: "עז", phonetic: "ez", diff: "easy" },
+      { emoji: "🐭", hebrew: "עכבר", phonetic: "achbar", diff: "medium" },
+      { emoji: "🐰", hebrew: "ארנב", phonetic: "arnav", diff: "medium" },
+      { emoji: "🦊", hebrew: "שועל", phonetic: "shu'al", diff: "medium" },
+      { emoji: "🐨", hebrew: "קואלה", phonetic: "ko'ala", diff: "medium" },
+      { emoji: "🐯", hebrew: "נמר", phonetic: "namer", diff: "medium" },
+      { emoji: "🐷", hebrew: "חזיר", phonetic: "chazir", diff: "medium" },
+      { emoji: "🐸", hebrew: "צפרדע", phonetic: "tsfardea", diff: "medium" },
+      { emoji: "🐦", hebrew: "ציפור", phonetic: "tsipor", diff: "medium" },
+      { emoji: "🦆", hebrew: "ברווז", phonetic: "barvaz", diff: "medium" },
+      { emoji: "🐺", hebrew: "זאב", phonetic: "ze'ev", diff: "medium" },
+      { emoji: "🐝", hebrew: "דבורה", phonetic: "dvora", diff: "medium" },
+      { emoji: "🦋", hebrew: "פרפר", phonetic: "parpar", diff: "medium" },
+      { emoji: "🐜", hebrew: "נמלה", phonetic: "nemala", diff: "medium" },
+      { emoji: "🐍", hebrew: "נחש", phonetic: "nachash", diff: "medium" },
+      { emoji: "🦀", hebrew: "סרטן", phonetic: "sartan", diff: "medium" },
+      { emoji: "🐬", hebrew: "דולפין", phonetic: "dolfin", diff: "medium" },
+      { emoji: "🦈", hebrew: "כריש", phonetic: "karish", diff: "medium" },
+      { emoji: "🐊", hebrew: "תנין", phonetic: "tanin", diff: "medium" },
+      { emoji: "🦓", hebrew: "זברה", phonetic: "zebra", diff: "medium" },
+      { emoji: "🦍", hebrew: "גורילה", phonetic: "gorila", diff: "medium" },
+      { emoji: "🐪", hebrew: "גמל", phonetic: "gamal", diff: "medium" },
+      { emoji: "🦘", hebrew: "קנגורו", phonetic: "kenguru", diff: "medium" },
+      { emoji: "🐑", hebrew: "כבשה", phonetic: "kivsa", diff: "medium" },
+      { emoji: "🦔", hebrew: "קיפוד", phonetic: "kipod", diff: "medium" },
+      { emoji: "🐹", hebrew: "אוגר", phonetic: "oger", diff: "hard" },
+      { emoji: "🐔", hebrew: "תרנגולת", phonetic: "tarnegolet", diff: "hard" },
+      { emoji: "🦉", hebrew: "ינשוף", phonetic: "yanshuf", diff: "hard" },
+      { emoji: "🦇", hebrew: "עטלף", phonetic: "atalef", diff: "hard" },
+      { emoji: "🐌", hebrew: "חילזון", phonetic: "chilazon", diff: "hard" },
+      { emoji: "🕷️", hebrew: "עכביש", phonetic: "akavish", diff: "hard" },
+      { emoji: "🦎", hebrew: "לטאה", phonetic: "leta'a", diff: "hard" },
+      { emoji: "🐙", hebrew: "תמנון", phonetic: "tamnun", diff: "hard" },
+      { emoji: "🐳", hebrew: "לווייתן", phonetic: "livyatan", diff: "hard" },
+      { emoji: "🦏", hebrew: "קרנף", phonetic: "karnaf", diff: "hard" },
+      { emoji: "🐓", hebrew: "תרנגול", phonetic: "tarnegol", diff: "hard" },
+      { emoji: "🦒", hebrew: "ג'ירפה", phonetic: "jirafa", diff: "hard" },
+
+      // ═══ פירות ═══
+      { emoji: "🍎", hebrew: "תפוח", phonetic: "tapuach", diff: "easy" },
+      { emoji: "🍐", hebrew: "אגס", phonetic: "agas", diff: "easy" },
+      { emoji: "🍊", hebrew: "תפוז", phonetic: "tapuz", diff: "easy" },
+      { emoji: "🍋", hebrew: "לימון", phonetic: "limon", diff: "easy" },
+      { emoji: "🍌", hebrew: "בננה", phonetic: "banana", diff: "easy" },
+      { emoji: "🍓", hebrew: "תות", phonetic: "tut", diff: "easy" },
+      { emoji: "🥭", hebrew: "מנגו", phonetic: "mango", diff: "easy" },
+      { emoji: "🥝", hebrew: "קיווי", phonetic: "kiwi", diff: "easy" },
+      { emoji: "🍉", hebrew: "אבטיח", phonetic: "avatiach", diff: "medium" },
+      { emoji: "🍇", hebrew: "ענבים", phonetic: "anavim", diff: "medium" },
+      { emoji: "🍍", hebrew: "אננס", phonetic: "ananas", diff: "medium" },
+      { emoji: "🥥", hebrew: "קוקוס", phonetic: "kokus", diff: "medium" },
+      { emoji: "🫐", hebrew: "אוכמניות", phonetic: "uchmaniyot", diff: "hard" },
+      { emoji: "🍒", hebrew: "דובדבן", phonetic: "duvdevan", diff: "hard" },
+      { emoji: "🍑", hebrew: "אפרסק", phonetic: "afarsek", diff: "hard" },
+
+      // ═══ ירקות ═══
+      { emoji: "🥕", hebrew: "גזר", phonetic: "gezer", diff: "easy" },
+      { emoji: "🧄", hebrew: "שום", phonetic: "shum", diff: "easy" },
+      { emoji: "🧅", hebrew: "בצל", phonetic: "batsal", diff: "easy" },
+      { emoji: "🌽", hebrew: "תירס", phonetic: "tiras", diff: "easy" },
+      { emoji: "🍅", hebrew: "עגבניה", phonetic: "agvaniya", diff: "medium" },
+      { emoji: "🍆", hebrew: "חציל", phonetic: "chatsil", diff: "medium" },
+      { emoji: "🥑", hebrew: "אבוקדו", phonetic: "avokado", diff: "medium" },
+      { emoji: "🥦", hebrew: "ברוקולי", phonetic: "brokoli", diff: "medium" },
+      { emoji: "🥬", hebrew: "חסה", phonetic: "chasa", diff: "medium" },
+      { emoji: "🌶️", hebrew: "פלפל", phonetic: "pilpel", diff: "medium" },
+      { emoji: "🍄", hebrew: "פטריה", phonetic: "pitriya", diff: "medium" },
+      { emoji: "🥒", hebrew: "מלפפון", phonetic: "melafefon", diff: "hard" },
+      { emoji: "🥜", hebrew: "בוטן", phonetic: "boten", diff: "hard" },
+
+      // ═══ אוכל ושתייה ═══
+      { emoji: "🍞", hebrew: "לחם", phonetic: "lechem", diff: "easy" },
+      { emoji: "🧀", hebrew: "גבינה", phonetic: "gvina", diff: "easy" },
+      { emoji: "🥚", hebrew: "ביצה", phonetic: "beitza", diff: "easy" },
+      { emoji: "🍗", hebrew: "עוף", phonetic: "of", diff: "easy" },
+      { emoji: "🍖", hebrew: "בשר", phonetic: "basar", diff: "easy" },
+      { emoji: "🍕", hebrew: "פיצה", phonetic: "pitsa", diff: "easy" },
+      { emoji: "🍟", hebrew: "צ'יפס", phonetic: "chips", diff: "easy" },
+      { emoji: "🥗", hebrew: "סלט", phonetic: "salat", diff: "easy" },
+      { emoji: "🧂", hebrew: "מלח", phonetic: "melach", diff: "easy" },
+      { emoji: "🍦", hebrew: "גלידה", phonetic: "glida", diff: "easy" },
+      { emoji: "🍰", hebrew: "עוגה", phonetic: "uga", diff: "easy" },
+      { emoji: "🍫", hebrew: "שוקולד", phonetic: "shokolad", diff: "easy" },
+      { emoji: "🍯", hebrew: "דבש", phonetic: "dvash", diff: "easy" },
+      { emoji: "🥛", hebrew: "חלב", phonetic: "chalav", diff: "easy" },
+      { emoji: "🍵", hebrew: "תה", phonetic: "te", diff: "easy" },
+      { emoji: "🧊", hebrew: "קרח", phonetic: "kerach", diff: "easy" },
+      { emoji: "🥐", hebrew: "קרואסון", phonetic: "kruason", diff: "medium" },
+      { emoji: "🥖", hebrew: "באגט", phonetic: "baget", diff: "medium" },
+      { emoji: "🧇", hebrew: "וופל", phonetic: "vafel", diff: "medium" },
+      { emoji: "🍔", hebrew: "המבורגר", phonetic: "hamburger", diff: "medium" },
+      { emoji: "🥪", hebrew: "כריך", phonetic: "karich", diff: "medium" },
+      { emoji: "🍿", hebrew: "פופקורן", phonetic: "popkorn", diff: "medium" },
+      { emoji: "🍬", hebrew: "סוכריה", phonetic: "sukariya", diff: "medium" },
+      { emoji: "🍪", hebrew: "עוגיה", phonetic: "ugiya", diff: "medium" },
+      { emoji: "🌭", hebrew: "נקניקיה", phonetic: "naknikiya", diff: "hard" },
+      { emoji: "🍩", hebrew: "סופגניה", phonetic: "sufganiya", diff: "hard" },
+
+      // ═══ טבע ומזג אוויר ═══
+      { emoji: "☀️", hebrew: "שמש", phonetic: "shemesh", diff: "easy" },
+      { emoji: "🌙", hebrew: "ירח", phonetic: "yare'ach", diff: "easy" },
+      { emoji: "⭐", hebrew: "כוכב", phonetic: "kochav", diff: "easy" },
+      { emoji: "☁️", hebrew: "ענן", phonetic: "anan", diff: "easy" },
+      { emoji: "🌧️", hebrew: "גשם", phonetic: "geshem", diff: "easy" },
+      { emoji: "❄️", hebrew: "שלג", phonetic: "sheleg", diff: "easy" },
+      { emoji: "🔥", hebrew: "אש", phonetic: "esh", diff: "easy" },
+      { emoji: "🌊", hebrew: "גל", phonetic: "gal", diff: "easy" },
+      { emoji: "🌳", hebrew: "עץ", phonetic: "ets", diff: "easy" },
+      { emoji: "🌸", hebrew: "פרח", phonetic: "perach", diff: "easy" },
+      { emoji: "🌹", hebrew: "ורד", phonetic: "vered", diff: "easy" },
+      { emoji: "🍁", hebrew: "עלה", phonetic: "ale", diff: "easy" },
+      { emoji: "🏔️", hebrew: "הר", phonetic: "har", diff: "easy" },
+      { emoji: "⚡", hebrew: "ברק", phonetic: "barak", diff: "medium" },
+      { emoji: "🌈", hebrew: "קשת", phonetic: "keshet", diff: "medium" },
+      { emoji: "🌵", hebrew: "קקטוס", phonetic: "kaktus", diff: "medium" },
+      { emoji: "🪨", hebrew: "סלע", phonetic: "sela", diff: "medium" },
+      { emoji: "💧", hebrew: "טיפה", phonetic: "tipa", diff: "medium" },
+      { emoji: "🌴", hebrew: "דקל", phonetic: "dekel", diff: "medium" },
+      { emoji: "🌻", hebrew: "חמנייה", phonetic: "chamaniya", diff: "hard" },
+      { emoji: "🌷", hebrew: "צבעוני", phonetic: "tsivoni", diff: "hard" },
+      { emoji: "🍀", hebrew: "תלתן", phonetic: "tiltan", diff: "hard" },
+
+      // ═══ איברי גוף ═══
+      { emoji: "👁️", hebrew: "עין", phonetic: "ayin", diff: "easy" },
+      { emoji: "👂", hebrew: "אוזן", phonetic: "ozen", diff: "easy" },
+      { emoji: "👃", hebrew: "אף", phonetic: "af", diff: "easy" },
+      { emoji: "👄", hebrew: "פה", phonetic: "pe", diff: "easy" },
+      { emoji: "🦷", hebrew: "שן", phonetic: "shen", diff: "easy" },
+      { emoji: "🦶", hebrew: "רגל", phonetic: "regel", diff: "easy" },
+      { emoji: "🖐️", hebrew: "יד", phonetic: "yad", diff: "easy" },
+      { emoji: "🫀", hebrew: "לב", phonetic: "lev", diff: "easy" },
+      { emoji: "🧠", hebrew: "מוח", phonetic: "mo'ach", diff: "medium" },
+      { emoji: "🦴", hebrew: "עצם", phonetic: "etsem", diff: "medium" },
+      { emoji: "👅", hebrew: "לשון", phonetic: "lashon", diff: "medium" },
+
+      // ═══ ביגוד ═══
+      { emoji: "👕", hebrew: "חולצה", phonetic: "chultsa", diff: "easy" },
+      { emoji: "👗", hebrew: "שמלה", phonetic: "simla", diff: "easy" },
+      { emoji: "🧥", hebrew: "מעיל", phonetic: "me'il", diff: "easy" },
+      { emoji: "👖", hebrew: "מכנסיים", phonetic: "michnasayim", diff: "medium" },
+      { emoji: "👔", hebrew: "עניבה", phonetic: "aniva", diff: "medium" },
+      { emoji: "🧦", hebrew: "גרביים", phonetic: "garbayim", diff: "medium" },
+      { emoji: "🧤", hebrew: "כפפות", phonetic: "kfafot", diff: "medium" },
+      { emoji: "🧣", hebrew: "צעיף", phonetic: "tsa'if", diff: "medium" },
+      { emoji: "👑", hebrew: "כתר", phonetic: "keter", diff: "medium" },
+      { emoji: "👢", hebrew: "מגף", phonetic: "magaf", diff: "medium" },
+      { emoji: "💍", hebrew: "טבעת", phonetic: "taba'at", diff: "medium" },
+      { emoji: "👛", hebrew: "ארנק", phonetic: "arnak", diff: "medium" },
+      { emoji: "👓", hebrew: "משקפיים", phonetic: "mishkafayim", diff: "hard" },
+
+      // ═══ תחבורה ═══
+      { emoji: "🚗", hebrew: "מכונית", phonetic: "mechonit", diff: "easy" },
+      { emoji: "🚌", hebrew: "אוטובוס", phonetic: "otobus", diff: "easy" },
+      { emoji: "🚂", hebrew: "רכבת", phonetic: "rakevet", diff: "easy" },
+      { emoji: "✈️", hebrew: "מטוס", phonetic: "matos", diff: "easy" },
+      { emoji: "⛵", hebrew: "סירה", phonetic: "sira", diff: "easy" },
+      { emoji: "🚕", hebrew: "מונית", phonetic: "monit", diff: "medium" },
+      { emoji: "🚑", hebrew: "אמבולנס", phonetic: "ambulans", diff: "medium" },
+      { emoji: "🚲", hebrew: "אופניים", phonetic: "ofanayim", diff: "medium" },
+      { emoji: "🏍️", hebrew: "אופנוע", phonetic: "ofnoa", diff: "medium" },
+      { emoji: "🚚", hebrew: "משאית", phonetic: "masait", diff: "medium" },
+      { emoji: "🚜", hebrew: "טרקטור", phonetic: "traktor", diff: "medium" },
+      { emoji: "🚁", hebrew: "מסוק", phonetic: "masok", diff: "medium" },
+      { emoji: "🚀", hebrew: "רקטה", phonetic: "raketa", diff: "medium" },
+      { emoji: "🚢", hebrew: "אוניה", phonetic: "oniya", diff: "medium" },
+      { emoji: "⚓", hebrew: "עוגן", phonetic: "ogen", diff: "hard" },
+      { emoji: "🚒", hebrew: "כבאית", phonetic: "kabait", diff: "hard" },
+      { emoji: "🚓", hebrew: "ניידת", phonetic: "nayedet", diff: "hard" },
+      { emoji: "🛴", hebrew: "קורקינט", phonetic: "korkinet", diff: "hard" },
+
+      // ═══ כלי בית וכלים ═══
+      { emoji: "🕯️", hebrew: "נר", phonetic: "ner", diff: "easy" },
+      { emoji: "🔨", hebrew: "פטיש", phonetic: "patish", diff: "medium" },
+      { emoji: "🪚", hebrew: "מסור", phonetic: "masor", diff: "medium" },
+      { emoji: "🔩", hebrew: "בורג", phonetic: "boreg", diff: "medium" },
+      { emoji: "🧲", hebrew: "מגנט", phonetic: "magnet", diff: "medium" },
+      { emoji: "🧽", hebrew: "ספוג", phonetic: "sfog", diff: "medium" },
+      { emoji: "🔦", hebrew: "פנס", phonetic: "panas", diff: "medium" },
+      { emoji: "📏", hebrew: "סרגל", phonetic: "sargel", diff: "medium" },
+      { emoji: "🚿", hebrew: "מקלחת", phonetic: "miklachat", diff: "medium" },
+      { emoji: "🛁", hebrew: "אמבטיה", phonetic: "ambatya", diff: "medium" },
+      { emoji: "🪛", hebrew: "מברג", phonetic: "mavreg", diff: "hard" },
+      { emoji: "🧹", hebrew: "מטאטא", phonetic: "matate", diff: "hard" },
+      { emoji: "🚽", hebrew: "אסלה", phonetic: "asla", diff: "hard" },
+
+      // ═══ כלי נגינה ═══
+      { emoji: "🎸", hebrew: "גיטרה", phonetic: "gitara", diff: "easy" },
+      { emoji: "🎹", hebrew: "פסנתר", phonetic: "psanter", diff: "medium" },
+      { emoji: "🥁", hebrew: "תופים", phonetic: "tupim", diff: "medium" },
+      { emoji: "🎻", hebrew: "כינור", phonetic: "kinor", diff: "medium" },
+      { emoji: "🎤", hebrew: "מיקרופון", phonetic: "mikrofon", diff: "medium" },
+      { emoji: "🎧", hebrew: "אוזניות", phonetic: "ozniyot", diff: "medium" },
+      { emoji: "🔔", hebrew: "פעמון", phonetic: "pa'amon", diff: "medium" },
+      { emoji: "🎺", hebrew: "חצוצרה", phonetic: "chatsotsra", diff: "hard" },
+      { emoji: "🎷", hebrew: "סקסופון", phonetic: "saksofon", diff: "hard" },
+
+      // ═══ ספורט וצעצועים ═══
+      { emoji: "🎈", hebrew: "בלון", phonetic: "balon", diff: "easy" },
+      { emoji: "🎁", hebrew: "מתנה", phonetic: "matana", diff: "easy" },
+      { emoji: "⚽", hebrew: "כדורגל", phonetic: "kaduregel", diff: "medium" },
+      { emoji: "🏀", hebrew: "כדורסל", phonetic: "kadursal", diff: "medium" },
+      { emoji: "🎾", hebrew: "טניס", phonetic: "tenis", diff: "medium" },
+      { emoji: "🎯", hebrew: "מטרה", phonetic: "matara", diff: "medium" },
+      { emoji: "🎲", hebrew: "קובייה", phonetic: "kubiya", diff: "medium" },
+      { emoji: "🧸", hebrew: "דובון", phonetic: "dubon", diff: "medium" },
+      { emoji: "🪁", hebrew: "עפיפון", phonetic: "afifon", diff: "medium" },
+      { emoji: "🏐", hebrew: "כדורעף", phonetic: "kaduraf", diff: "hard" },
+
+      // ═══ חפצים ═══
+      { emoji: "💰", hebrew: "כסף", phonetic: "kesef", diff: "easy" },
+      { emoji: "📻", hebrew: "רדיו", phonetic: "radyo", diff: "easy" },
+      { emoji: "🪙", hebrew: "מטבע", phonetic: "matbea", diff: "medium" },
+      { emoji: "✉️", hebrew: "מכתב", phonetic: "michtav", diff: "medium" },
+      { emoji: "📦", hebrew: "חבילה", phonetic: "chavila", diff: "medium" },
+      { emoji: "📺", hebrew: "טלוויזיה", phonetic: "televizya", diff: "medium" },
+      { emoji: "🔋", hebrew: "סוללה", phonetic: "solela", diff: "medium" },
+      { emoji: "🖼️", hebrew: "תמונה", phonetic: "tmuna", diff: "medium" },
+      { emoji: "🩹", hebrew: "פלסטר", phonetic: "plaster", diff: "medium" },
+      { emoji: "🔌", hebrew: "תקע", phonetic: "teka", diff: "hard" },
+      { emoji: "🌡️", hebrew: "מדחום", phonetic: "madchom", diff: "hard" },
     ];
 
     function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
-    function getOptions(correct, all) {
-      const wrong = shuffle(all.filter(i => i.hebrew !== correct.hebrew)).slice(0, 2);
+    function getOptions(correct, pool) {
+      const base = pool.filter(i => i.hebrew !== correct.hebrew);
+      const wrong = shuffle(base.length >= 2 ? base : ITEMS.filter(i => i.hebrew !== correct.hebrew)).slice(0, 2);
       return shuffle([correct, ...wrong]);
     }
 
@@ -155,6 +440,7 @@
     function App() {
       const [screen, setScreen] = useState("start");
       const [playerName, setPlayerName] = useState("");
+      const [difficulty, setDifficulty] = useState("easy");
       const [score, setScore] = useState(0);
       const [level, setLevel] = useState(1);
       const [correctThisLevel, setCorrectThisLevel] = useState(0);
@@ -163,29 +449,30 @@
       const [selected, setSelected] = useState(null);
       const [showFireworks, setShowFireworks] = useState(false);
       const [showLevelUp, setShowLevelUp] = useState(false);
-      const [leaderboard, setLeaderboard] = useState([
-        { name: "Sofia", score: 220 },
-        { name: "Miguel", score: 180 },
-        { name: "Carmen", score: 130 },
-      ]);
+      const [leaderboard, setLeaderboard] = useState(DEFAULT_LB);
       const [showLeaderboard, setShowLeaderboard] = useState(false);
       const [totalAnswered, setTotalAnswered] = useState(0);
       const [confirmExit, setConfirmExit] = useState(false);
       const usedRef = useRef([]);
+      const diffRef = useRef("easy");
+
+      useEffect(() => { fetchBoard().then(setLeaderboard); }, []);
 
       const pickQuestion = useCallback(() => {
-        const remaining = ITEMS.filter(i => !usedRef.current.includes(i.hebrew));
-        const pool = remaining.length > 0 ? remaining : ITEMS;
+        const pool0 = ITEMS.filter(i => i.diff === diffRef.current);
+        const remaining = pool0.filter(i => !usedRef.current.includes(i.hebrew));
+        const pool = remaining.length > 0 ? remaining : pool0;
         if (remaining.length === 0) usedRef.current = [];
         const item = pool[Math.floor(Math.random() * pool.length)];
         usedRef.current.push(item.hebrew);
         setQuestion(item);
-        setOptions(getOptions(item, ITEMS));
+        setOptions(getOptions(item, pool0));
         setSelected(null);
       }, []);
 
       const startGame = () => {
         if (!playerName.trim()) return;
+        diffRef.current = difficulty;
         setScore(0); setLevel(1); setCorrectThisLevel(0); setTotalAnswered(0);
         usedRef.current = [];
         pickQuestion();
@@ -216,11 +503,13 @@
         }
       };
 
-      const endGame = () => {
+      const endGame = async () => {
         const entry = { name: playerName, score };
-        const newBoard = [...leaderboard, entry].sort((a, b) => b.score - a.score).slice(0, 10);
-        setLeaderboard(newBoard);
+        setLeaderboard(prev => [...prev, entry].sort((a, b) => b.score - a.score).slice(0, 10));
         setScreen("end");
+        await submitScore(playerName, score);
+        const board = await fetchBoard();
+        setLeaderboard(board);
       };
 
       if (screen === "start") return (
@@ -236,6 +525,18 @@
                 placeholder="שם שלך"
                 style={{ width:"100%", padding:"14px 18px", border:"3px solid #EDE9FE", borderRadius:16, fontSize:17, textAlign:"center", outline:"none", fontFamily:"'Nunito',sans-serif", color:"#374151", marginBottom:16 }}
               />
+              <p style={{ fontSize:13, color:"#9CA3AF", fontWeight:700, marginBottom:8 }}>רמת קושי</p>
+              <div style={{ display:"flex", gap:8, marginBottom:18 }}>
+                {[["easy","קל"],["medium","בינוני"],["hard","קשה"]].map(([val,label]) => (
+                  <button key={val} onClick={() => setDifficulty(val)}
+                    style={{ flex:1, padding:"11px", borderRadius:14, cursor:"pointer", fontFamily:"'Nunito',sans-serif", fontWeight:800, fontSize:15,
+                      border: difficulty===val ? "3px solid #7C3AED" : "3px solid #EDE9FE",
+                      background: difficulty===val ? "#F5F0FF" : "white",
+                      color: difficulty===val ? "#7C3AED" : "#9CA3AF" }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
               <button onClick={startGame}
                 style={{ width:"100%", padding:"15px", background:"linear-gradient(135deg,#7C3AED,#A855F7)", color:"white", border:"none", borderRadius:16, fontSize:19, fontFamily:"'Fredoka One',cursive", letterSpacing:0.5, cursor:"pointer", boxShadow:"0 6px 24px rgba(124,58,237,0.35)" }}>
                 🎮 בוא נשחק!
