@@ -453,6 +453,8 @@
       const [showLeaderboard, setShowLeaderboard] = useState(false);
       const [totalAnswered, setTotalAnswered] = useState(0);
       const [confirmExit, setConfirmExit] = useState(false);
+      const [lives, setLives] = useState(3);
+      const [endReason, setEndReason] = useState("finished");
       const usedRef = useRef([]);
       const diffRef = useRef("easy");
 
@@ -474,6 +476,7 @@
         if (!playerName.trim()) return;
         diffRef.current = difficulty;
         setScore(0); setLevel(1); setCorrectThisLevel(0); setTotalAnswered(0);
+        setLives(3); setEndReason("finished");
         usedRef.current = [];
         pickQuestion();
         setScreen("game");
@@ -499,7 +502,14 @@
             setTimeout(pickQuestion, 1200);
           }
         } else {
-          setTimeout(pickQuestion, 1300);
+          const newLives = lives - 1;
+          setLives(newLives);
+          if (newLives <= 0) {
+            setEndReason("lost");
+            setTimeout(endGame, 1300);
+          } else {
+            setTimeout(pickQuestion, 1300);
+          }
         }
       };
 
@@ -564,9 +574,9 @@
       if (screen === "end") return (
         <div className="game-root" style={{ display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
           <div className="card" style={{ padding:"40px 36px", textAlign:"center", width:"100%", maxWidth:420 }}>
-            <div style={{ fontSize:64 }}>🎉</div>
-            <h2 style={{ fontFamily:"'Fredoka One',cursive", fontSize:32, color:"#5B21B6", marginTop:8 }}>כל הכבוד, {playerName}!</h2>
-            <p style={{ color:"#6B7280", marginTop:4, marginBottom:20, fontWeight:600 }}>סיימת את המשחק!</p>
+            <div style={{ fontSize:64 }}>{endReason === "lost" ? "💔" : "🎉"}</div>
+            <h2 style={{ fontFamily:"'Fredoka One',cursive", fontSize:32, color:"#5B21B6", marginTop:8 }}>{endReason === "lost" ? "נגמרו החיים!" : `כל הכבוד, ${playerName}!`}</h2>
+            <p style={{ color:"#6B7280", marginTop:4, marginBottom:20, fontWeight:600 }}>{endReason === "lost" ? "אפשר להתחיל מחדש ולנסות שוב" : "סיימת את המשחק!"}</p>
             <div style={{ display:"flex", justifyContent:"center", gap:20, marginBottom:28 }}>
               <div style={{ textAlign:"center" }}>
                 <div style={{ fontFamily:"'Fredoka One',cursive", fontSize:44, color:"#7C3AED" }}>{score}</div>
@@ -630,6 +640,7 @@
           <div className="game-root" style={{ minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", padding:"20px 16px" }}>
             <div style={{ width:"100%", maxWidth:460, display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
               <div style={{ background:"#7C3AED", color:"white", borderRadius:12, padding:"6px 14px", fontFamily:"'Fredoka One',cursive", fontSize:20 }}>⭐ {score}</div>
+              <div style={{ fontSize:19, letterSpacing:2 }} aria-label={`${lives} חיים`}>{[0,1,2].map(i => <span key={i}>{i < lives ? "❤️" : "🤍"}</span>)}</div>
               <div style={{ fontFamily:"'Fredoka One',cursive", fontSize:18, color:"#5B21B6" }}>שלב {level}</div>
               <button onClick={() => setConfirmExit(true)}
                 style={{ background:"#F5F0FF", border:"none", borderRadius:12, padding:"7px 14px", color:"#7C3AED", fontWeight:700, cursor:"pointer", fontSize:13, fontFamily:"'Nunito',sans-serif" }}>
