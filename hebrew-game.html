@@ -455,6 +455,7 @@
       const [confirmExit, setConfirmExit] = useState(false);
       const [lives, setLives] = useState(3);
       const [endReason, setEndReason] = useState("finished");
+      const [showLifeLost, setShowLifeLost] = useState(false);
       const usedRef = useRef([]);
       const diffRef = useRef("easy");
 
@@ -508,7 +509,8 @@
             setEndReason("lost");
             setTimeout(endGame, 1300);
           } else {
-            setTimeout(pickQuestion, 1300);
+            setTimeout(() => setShowLifeLost(true), 700);
+            setTimeout(() => { setShowLifeLost(false); pickQuestion(); }, 2100);
           }
         }
       };
@@ -633,6 +635,17 @@
                 <div style={{ fontSize:64 }}>🚀</div>
                 <h2 style={{ fontFamily:"'Fredoka One',cursive", fontSize:34, color:"#5B21B6", marginTop:8 }}>שלב {level}!</h2>
                 <p style={{ color:"#7C3AED", fontWeight:700, fontSize:18, marginTop:4 }}>עלית שלב! 🎉</p>
+              </div>
+            </div>
+          )}
+
+          {showLifeLost && (
+            <div className="levelup-overlay">
+              <div className="levelup-card">
+                <div style={{ fontSize:64 }}>💔</div>
+                <h2 style={{ fontFamily:"'Fredoka One',cursive", fontSize:34, color:"#5B21B6", marginTop:8 }}>אופס, טעות!</h2>
+                <p style={{ color:"#7C3AED", fontWeight:700, fontSize:18, marginTop:4 }}>{lives === 1 ? "נשאר עוד לב אחד" : `נשארו עוד ${lives} לבבות`}</p>
+                <div style={{ fontSize:30, marginTop:8, letterSpacing:2 }}>{"❤️".repeat(lives)}</div>
               </div>
             </div>
           )}
