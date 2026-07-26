@@ -510,10 +510,11 @@
             setTimeout(endGame, 1300);
           } else {
             setTimeout(() => setShowLifeLost(true), 700);
-            setTimeout(() => { setShowLifeLost(false); pickQuestion(); }, 2100);
           }
         }
       };
+
+      const closeLifeLost = () => { setShowLifeLost(false); pickQuestion(); };
 
       const endGame = async () => {
         const entry = { name: playerName, score };
@@ -641,7 +642,9 @@
 
           {showLifeLost && (
             <div className="levelup-overlay">
-              <div className="levelup-card">
+              <div className="levelup-card" style={{ position:"relative" }}>
+                <button onClick={closeLifeLost} aria-label="סגור והמשך"
+                  style={{ position:"absolute", top:12, right:16, background:"none", border:"none", fontSize:28, lineHeight:1, color:"#9CA3AF", cursor:"pointer", fontWeight:700 }}>✕</button>
                 <div style={{ fontSize:64 }}>💔</div>
                 <h2 style={{ fontFamily:"'Fredoka One',cursive", fontSize:34, color:"#5B21B6", marginTop:8 }}>אופס, טעות!</h2>
                 <p style={{ color:"#7C3AED", fontWeight:700, fontSize:18, marginTop:4 }}>{lives === 1 ? "נשאר עוד לב אחד" : `נשארו עוד ${lives} לבבות`}</p>
